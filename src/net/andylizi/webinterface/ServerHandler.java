@@ -126,6 +126,9 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest>{
                         }
             if(!response.headers().contains("Date"))
                 response.headers().add("Date", new Date());
+            if(plugin.accessControlAllowOrigin != null &&
+                    !response.headers().contains("Access-Control-Allow-Origin"))
+                response.headers().add("Access-Control-Allow-Origin", plugin.accessControlAllowOrigin);
             ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
         }else if(module instanceof WebSocketModule){
             WebSocketServerHandshaker handshaker = new WebSocketServerHandshakerFactory(

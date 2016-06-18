@@ -37,6 +37,8 @@ public final class Main extends JavaPlugin{
     private final EventLoopGroup group;
     private final ServerBootstrap bootstrap;
     private ChannelFuture channel;
+    
+    public String accessControlAllowOrigin;
 
     public Main() {
         group = new NioEventLoopGroup(2, new ThreadFactory() {
@@ -76,6 +78,9 @@ public final class Main extends JavaPlugin{
     public void onEnable() {
         saveDefaultConfig();
         reloadConfig();
+        accessControlAllowOrigin = getConfig().getString("accessControlAllowOrigin", null);
+        if(accessControlAllowOrigin != null && accessControlAllowOrigin.trim().isEmpty())
+            accessControlAllowOrigin = null;
         String ip = getConfig().getString("network.ip", "").trim();
         int port = getConfig().getInt("network.port");
         InetSocketAddress address;
