@@ -1,0 +1,3 @@
+network:
+    ip: "*"
+    port: 10240
