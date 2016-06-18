@@ -16,7 +16,6 @@
  */
 package net.andylizi.webinterface;
 
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
@@ -25,7 +24,6 @@ import io.netty.handler.codec.http.*;
 import io.netty.util.CharsetUtil;
 import io.netty.handler.codec.http.websocketx.*;
 import io.netty.handler.ssl.SslHandler;
-import static io.netty.handler.codec.http.HttpHeaders.Names.*;
 import static io.netty.handler.codec.http.HttpResponseStatus.*;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
@@ -38,6 +36,7 @@ import java.util.zip.GZIPOutputStream;
 
 import net.andylizi.webinterface.api.API;
 import net.andylizi.webinterface.api.Module;
+import net.andylizi.webinterface.api.Utils;
 import net.andylizi.webinterface.api.events.ModuleRequestEvent;
 import net.andylizi.webinterface.http.HttpModule;
 import net.andylizi.webinterface.http.HttpParams;
@@ -46,6 +45,12 @@ import net.andylizi.webinterface.websocket.WebSocketModule;
 import org.bukkit.Bukkit;
 
 public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest>{
+    static int HTTP_REQUEST_COUNTER = 0;
+    static long lastHttpRequestTime;
+    
+    static int WEBSOCKET_REQUEST_COUNTER = 0;
+    static long lastWebsocketRequestTime;
+    
     private final Main plugin;
     private final String SERVER;
     private final String X_POWERED_BY;
@@ -60,7 +65,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest>{
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
         if(!request.getDecoderResult().isSuccess()){
-            sendError(ctx, BAD_REQUEST);
+            Utils.INSTANCE.sendError(BAD_REQUEST, ctx);
             return;
         }
 
@@ -71,7 +76,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest>{
             ModuleRequestEvent event = new ModuleRequestEvent(moduleId, ctx.channel().remoteAddress());
             Bukkit.getPluginManager().callEvent(event);
             if(event.isCancelled()){
-                sendCustomError(ctx, FORBIDDEN, "The request has been canceled by an event listener");
+                Utils.INSTANCE.sendError(FORBIDDEN, "The request has been canceled by an event listener", ctx);
                 return;
             }
             moduleId = event.getModuleId();
@@ -79,7 +84,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest>{
         
         Module module = API.lookupModule(moduleId);
         if(module == null){
-            sendError(ctx, NOT_FOUND);
+            Utils.INSTANCE.sendError(NOT_FOUND, ctx);
             return;
         }
         String uri = request.getUri().substring(matcher.end());
@@ -98,10 +103,14 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest>{
             try{
                 response = ((HttpModule) module).handleRequest(uri, new HttpParams(request.content(), CharsetUtil.UTF_8, params), request);
             }catch(Exception ex){
-                sendError(ctx, INTERNAL_SERVER_ERROR);
+                Utils.INSTANCE.sendError(INTERNAL_SERVER_ERROR, ctx);
                 ex.printStackTrace();
                 return;
             }
+            HTTP_REQUEST_COUNTER++;
+            if(System.currentTimeMillis() - lastHttpRequestTime > 60 * 1000)
+                HTTP_REQUEST_COUNTER = 0;
+            lastHttpRequestTime = System.currentTimeMillis();
             if(response == null){
                 ctx.writeAndFlush(new DefaultFullHttpResponse(HTTP_1_1, NO_CONTENT)).addListener(ChannelFutureListener.CLOSE);
                 return;
@@ -117,12 +126,15 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest>{
                     if(str.toLowerCase().contains("gzip"))
                         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                             try (GZIPOutputStream out = new GZIPOutputStream(baos)) {
-                                out.write(response.content().array());
+                                out.write(response.content().copy().array());
                             }
-                            response.content().clear().writeBytes(baos.toByteArray());
+                            byte[] data = baos.toByteArray();
+                            response.content().clear()
+                                    .capacity(data.length).writeBytes(data);
                             response.headers()
                                     .set("Content-Encoding", "gzip")
-                                    .add("Very", "Accept-Encoding");
+                                    .add("Very", "Accept-Encoding")
+                                    .set("Content-Length", data.length);
                         }
             if(!response.headers().contains("Date"))
                 response.headers().add("Date", new Date());
@@ -136,6 +148,11 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest>{
             if(handshaker == null)
                 WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel());
             else{
+                WEBSOCKET_REQUEST_COUNTER++;
+                if(System.currentTimeMillis() - lastWebsocketRequestTime > 60 * 1000)
+                    WEBSOCKET_REQUEST_COUNTER = 0;
+                lastWebsocketRequestTime = System.currentTimeMillis();
+                
                 handshaker.handshake(ctx.channel(), request);
                 WebSocketConnection conn = ((WebSocketModule) module)
                         .newConnect(ctx, handshaker, uri, new HttpParams(request.content(), CharsetUtil.UTF_8, params), request);
@@ -146,23 +163,11 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest>{
                 }
             }
         }else{
-            sendError(ctx, NOT_FOUND);
+            Utils.INSTANCE.sendError(NOT_FOUND, ctx);
             return;
         }
     }
-    
-    private static void sendError(ChannelHandlerContext ctx, HttpResponseStatus status){
-        sendCustomError(ctx, status, null);
-    }
-    
-    private static void sendCustomError(ChannelHandlerContext ctx, HttpResponseStatus status, String msg){
-        FullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, 
-                status, 
-                Unpooled.copiedBuffer(status.toString().concat(msg == null ? "" : "\r\n".concat(msg)), CharsetUtil.UTF_8));
-        response.headers().set(CONTENT_TYPE, "text/plain; charset=utf-8");
-        ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
-    }
-    
+
     private static String getWebSocketLocation(ChannelPipeline pipeline, HttpRequest request){
         String protocol = "ws";
         if (pipeline.get(SslHandler.class) != null)

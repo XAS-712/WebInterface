@@ -27,8 +27,9 @@ import io.netty.handler.codec.http.websocketx.*;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import net.andylizi.webinterface.api.Utils;
 
-public abstract class WebSocketConnection{
+public abstract class WebSocketConnection extends Utils{
     private final Internal internal;
     private final WebSocketServerHandshaker handshaker;
     private final ChannelHandlerContext context;

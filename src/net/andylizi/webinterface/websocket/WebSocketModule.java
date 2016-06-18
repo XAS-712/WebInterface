@@ -23,5 +23,9 @@ import net.andylizi.webinterface.api.Module;
 import net.andylizi.webinterface.http.HttpParams;
 
 public abstract interface WebSocketModule extends Module{
-    public WebSocketConnection newConnect(ChannelHandlerContext context, WebSocketServerHandshaker handshaker, String uri, HttpParams param, FullHttpRequest request);
+    public WebSocketConnection newConnect(ChannelHandlerContext context, 
+                                WebSocketServerHandshaker handshaker, 
+                                String uri, 
+                                HttpParams param, 
+                                FullHttpRequest request);
 }

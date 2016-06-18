@@ -65,6 +65,14 @@ public abstract class API {
         Module module;
         return (module = httpRegistry.get(id)) == null ? websocketRegistry.get(id) : module;
     }
+    
+    public static int getHttpModuleCount(){
+        return httpRegistry.size();
+    }
+    
+    public static int getWebSocketModuleCount(){
+        return websocketRegistry.size();
+    }
 
     private API() throws AssertionError{ throw new AssertionError(); }
 }

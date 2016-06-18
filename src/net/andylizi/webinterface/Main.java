@@ -26,12 +26,15 @@ import io.netty.handler.stream.ChunkedWriteHandler;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-
+import java.net.InetAddress;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.net.InetAddress;
+
+import net.andylizi.webinterface.api.API;
+import org.bukkit.scheduler.BukkitRunnable;
 
 public final class Main extends JavaPlugin{
     private final EventLoopGroup group;
@@ -110,6 +113,48 @@ public final class Main extends JavaPlugin{
             setEnabled(false);
             return;
         }
+        
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                try {
+                    Metrics metrics = new Metrics(Main.this);
+                    {
+                        Metrics.Graph graph = metrics.createGraph("Modules");
+                        graph.addPlotter(new Metrics.Plotter("Http Module") {
+                            @Override
+                            public int getValue() {
+                                return API.getHttpModuleCount();
+                            }
+                        });
+                        graph.addPlotter(new Metrics.Plotter("WebSocket Module") {
+                            @Override
+                            public int getValue() {
+                                return API.getWebSocketModuleCount();
+                            }
+                        });
+                    }
+                    {
+                        Metrics.Graph graph = metrics.createGraph("Request Count Per Minute");
+                        graph.addPlotter(new Metrics.Plotter("Http Request") {
+                            @Override
+                            public int getValue() {
+                                return ServerHandler.HTTP_REQUEST_COUNTER;
+                            }
+                        });
+                        graph.addPlotter(new Metrics.Plotter("WebSocket Request") {
+                            @Override
+                            public int getValue() {
+                                return ServerHandler.WEBSOCKET_REQUEST_COUNTER;
+                            }
+                        });
+                    }
+                    metrics.start();
+                } catch(IOException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.runTaskLater(this, 20L * 10L);
     }
 
     @Override
