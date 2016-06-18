@@ -93,7 +93,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest>{
         else
             params = HttpParams.parseParams(URLDecoder.decode(temp[1], "UTF-8"), new HashMap<String, String>());
         
-        if(module instanceof HttpModule){
+        if(module instanceof HttpModule && !request.headers().contains("Upgrade")){
             FullHttpResponse response;
             try{
                 response = ((HttpModule) module).handleRequest(uri, new HttpParams(request.content(), CharsetUtil.UTF_8, params), request);
