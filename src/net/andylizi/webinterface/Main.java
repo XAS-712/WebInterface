@@ -32,11 +32,15 @@ import java.net.UnknownHostException;
 import java.net.InetAddress;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.activation.MimetypesFileTypeMap;
 
 import net.andylizi.webinterface.api.API;
 import org.bukkit.scheduler.BukkitRunnable;
 
 public final class Main extends JavaPlugin{
+    private static Main instance;
+    private static MimetypesFileTypeMap mimeTypesMap;
+    
     private final EventLoopGroup group;
     private final ServerBootstrap bootstrap;
     private ChannelFuture channel;
@@ -75,6 +79,7 @@ public final class Main extends JavaPlugin{
             group.shutdownGracefully();
             throw t;
         }
+        instance = this;
     }
 
     @Override
@@ -161,5 +166,11 @@ public final class Main extends JavaPlugin{
     public void onDisable() {
         if(group != null)
             group.shutdownGracefully();
+    }
+    
+    public static MimetypesFileTypeMap getMimeTypesMap(){
+        if(mimeTypesMap == null)
+            mimeTypesMap = new MimetypesFileTypeMap(instance.getResource("META-INF/mime.types"));
+        return mimeTypesMap;
     }
 }

@@ -20,6 +20,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.StringTokenizer;
+import javax.activation.MimetypesFileTypeMap;
+import net.andylizi.webinterface.Main;
 
 import net.andylizi.webinterface.http.HttpModule;
 import net.andylizi.webinterface.websocket.WebSocketModule;
@@ -64,6 +66,10 @@ public abstract class API {
             id = tokenizer.nextToken();
         Module module;
         return (module = httpRegistry.get(id)) == null ? websocketRegistry.get(id) : module;
+    }
+    
+    public static MimetypesFileTypeMap getMimeTypesMap(){
+        return Main.getMimeTypesMap();
     }
     
     public static int getHttpModuleCount(){
