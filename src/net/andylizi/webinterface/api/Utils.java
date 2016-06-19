@@ -16,6 +16,7 @@
  */
 package net.andylizi.webinterface.api;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
@@ -100,6 +101,11 @@ public class Utils {
             return header("Content-Length", data.length);
         }
         
+        public ResponseBuilder content(ByteBuf data){
+            this.response.content().clear().capacity(data.readableBytes()).writeBytes(data);
+            return header("Content-Length", data.readableBytes());
+        }
+
         public ResponseBuilder header(String header, Object value){
             response.headers().add(header, value);
             return this;
