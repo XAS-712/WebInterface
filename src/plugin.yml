@@ -3,3 +3,4 @@ main: net.andylizi.webinterface.Main
 version: 1.1
 author: andylizi
 load: STARTUP
+softdepend: [NettyIO]
